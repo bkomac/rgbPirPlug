@@ -1,33 +1,24 @@
 #include <Espiot.h>
 
 #include <Adafruit_Sensor.h>
-#include <DHT.h>
 #include <DallasTemperature.h>
 #include <OneWire.h>
 
 Espiot espiot;
 
-// Vcc measurement
-//ADC_MODE(ADC_VCC);
 int lightTreshold = 0; // 0 - dark, >100 - light
 
 String sensorData = "";
 int sensorValue;
 
 // CONF
-String ver = "1.0.4";
+String ver = "1.0.1";
 long lastTime = millis();
 
 //DS18B20
 #define ONE_WIRE_BUS 15
 #define TEMPERATURE_PRECISION 12 // 8 9 10 12
 
-// DHT
-#define DHTPIN 16
-#define DHTTYPE DHT11 // DHT11
-DHT dht(DHTPIN, DHTTYPE);
-
-float humd = NULL;
 float temp = NULL;
 
 // PIR
@@ -55,16 +46,15 @@ void setup() { //------------------------------------------------
   Serial.begin(115200);
 
   pinMode(PIRPIN, INPUT);
-  pinMode(RELEY, OUTPUT);
   pinMode(BUILTINLED, OUTPUT);
 
   pinMode(REDPIN, OUTPUT);
   pinMode(GREENPIN, OUTPUT);
   pinMode(BLUEPIN, OUTPUT);
 
-  analogWrite(REDPIN, 0);
-  analogWrite(GREENPIN, 0);
-  analogWrite(BLUEPIN, 0);
+  analogWrite(REDPIN, 1023);
+  analogWrite(GREENPIN, 1023);
+  analogWrite(BLUEPIN, 1023);
 
   Serial.println("PirPlug ...v" + String(ver));
   delay(300);
@@ -74,11 +64,8 @@ void setup() { //------------------------------------------------
 
   espiot.init(ver);
   //espiot.enableVccMeasure();
-  espiot.SENSOR = "PIR,DHT21,DS18B20";
+  espiot.SENSOR = "PIR,DS18B20";
 
-  dht.begin();
-
-  Serial.println("sensors.begin() ...");
   delay(300);
   sensors.begin();
 
@@ -88,8 +75,6 @@ void setup() { //------------------------------------------------
     espiot.blink();
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
-    root["DHTPIN"] = DHTPIN;
-    root["DHTTYPE"] = DHTTYPE;
     root["PIRPIN"] = PIRPIN;
     root["REDPIN"] = REDPIN;
     root["BLUEPIN"] = BLUEPIN;
@@ -105,16 +90,10 @@ void setup() { //------------------------------------------------
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
 
-    delay(300);
-    float humd1 = dht.readHumidity();
-    delay(100);
-    float temp1 = dht.readTemperature();
-
     root["id"] = espiot.getDeviceId();
     root["name"] = espiot.deviceName;
 
-    root["temp"] = temp1;
-    root["hum"] = humd1;
+    root["temp"] = temp;
     root["light"] = sensorValue;
 
     JsonObject &rgb = root.createNestedObject("rgb");
@@ -133,11 +112,6 @@ void setup() { //------------------------------------------------
     espiot.blink();
     DynamicJsonBuffer jsonBuffer;
     JsonObject &root = jsonBuffer.createObject();
-
-    delay(300);
-    float humd1 = dht.readHumidity();
-    delay(100);
-    float temp1 = dht.readTemperature();
 
     root["id"] = espiot.getDeviceId();
     root["name"] = espiot.deviceName;
@@ -191,31 +165,7 @@ void loop() {
   sensorValue = analogRead(A0); // read analog input pin 0
 
   sensors.requestTemperatures();
-
-  float humd1 = NULL;
-  float temp1 = NULL;
-
-  // DHT
-  delay(300);
-  humd1 = dht.readHumidity();
-  delay(100);
-  temp1 = dht.readTemperature();
-
-  float temp = sensors.getTempC(0);
-
-  if (String(humd1) != "nan" && String(temp1) != "nan" && temp1 != NULL) {
-    humd = humd1;
-    temp = temp1;
-
-    Serial.print(F("\nTemperature: "));
-    Serial.print(temp);
-    Serial.print(F("\nHumidity: "));
-    Serial.println(humd);
-
-  } else {
-    temp = NULL;
-    humd = NULL;
-  }
+  temp = sensors.getTempC(0);
 
   yield();
 
@@ -224,10 +174,9 @@ void loop() {
   root["id"] = espiot.getDeviceId();
   root["name"] = espiot.deviceName;
   root["temp"] = temp;
-  //root["hum"] = humd;
+
   root["light"] = sensorValue;
   root["motion"] = NULL;
-
 
   yield();
 
