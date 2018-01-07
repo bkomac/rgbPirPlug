@@ -6,13 +6,11 @@
 
 Espiot espiot;
 
-int lightTreshold = 0; // 0 - dark, >100 - light
-
 String sensorData = "";
 int sensorValue;
 
 // CONF
-String ver = "1.0.3";
+String ver = "1.0.5";
 long lastTime = millis();
 
 //DS18B20
@@ -190,12 +188,16 @@ void loop() {
   int inputState = digitalRead(PIRPIN);
   if (MODE == "AUTO") {
     if (inputState == HIGH) {
-      Serial.println(F("Sensor high..."));
-      digitalWrite(BUILTINLED, LOW);
+      Serial.println(F("Sensor high ... "));
+      Serial.println("espiot.lightThreshold="+ String(espiot.lightThreshold));
 
-      analogWrite(BLUEPIN, blue);
-      analogWrite(GREENPIN, green);
-      analogWrite(REDPIN, red);
+      if(sensorValue < espiot.lightThreshold){
+          digitalWrite(BUILTINLED, LOW);
+
+          analogWrite(BLUEPIN, blue);
+          analogWrite(GREENPIN, green);
+          analogWrite(REDPIN, red);
+       }
 
       lastTime = millis();
       if(!sentMsg){
