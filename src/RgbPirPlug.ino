@@ -12,11 +12,11 @@ String sensorData = "";
 int sensorValue;
 
 // CONF
-String ver = "1.0.1";
+String ver = "1.0.2";
 long lastTime = millis();
 
 //DS18B20
-#define ONE_WIRE_BUS 15
+#define ONE_WIRE_BUS 13
 #define TEMPERATURE_PRECISION 12 // 8 9 10 12
 
 float temp = NULL;
@@ -25,7 +25,7 @@ float temp = NULL;
 #define PIRPIN 4
 
 //RGB
-#define REDPIN 13
+#define REDPIN 16
 #define GREENPIN 12
 #define BLUEPIN 14
 
@@ -34,13 +34,15 @@ int green = 1023;
 int blue = 0;
 
 #define BUILTINLED 2
-#define RELEY 50
 
 String MODE = "AUTO";
 boolean sentMsg = false;
 
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
+
+int devicesFound = 0;
+DeviceAddress devices[10];
 
 void setup() { //------------------------------------------------
   Serial.begin(115200);
@@ -152,6 +154,8 @@ void setup() { //------------------------------------------------
     espiot.server.send(200, "application/json", content);
   });
 
+  sensors.requestTemperatures();
+
 } //--
 
 // -----------------------------------------------------------------------------
@@ -165,7 +169,9 @@ void loop() {
   sensorValue = analogRead(A0); // read analog input pin 0
 
   sensors.requestTemperatures();
-  temp = sensors.getTempC(0);
+  temp = sensors.getTempCByIndex(0);
+
+  getDeviceAddress();
 
   yield();
 
@@ -185,7 +191,6 @@ void loop() {
     if (inputState == HIGH) {
       Serial.println(F("Sensor high..."));
       digitalWrite(BUILTINLED, LOW);
-      digitalWrite(RELEY, HIGH);
 
       analogWrite(BLUEPIN, blue);
       analogWrite(GREENPIN, green);
@@ -205,7 +210,6 @@ void loop() {
   }
 
   if (millis() > lastTime + espiot.timeOut && inputState != HIGH) {
-    digitalWrite(RELEY, LOW);
     digitalWrite(BUILTINLED, HIGH);
     analogWrite(BLUEPIN, 1023);
     analogWrite(GREENPIN, 1023);
@@ -226,3 +230,47 @@ void loop() {
   yield();
 
 } //---------------------------------------------------------------
+
+void getDeviceAddress(void) {
+
+  Serial.println("\nGetting the address...");
+
+  devicesFound = sensors.getDeviceCount();
+  Serial.print("Num devices: ");
+  Serial.println(devicesFound);
+
+  for (int i = 0; i < devicesFound; i++)
+    if (!sensors.getAddress(devices[i], i))
+      Serial.println("Unable to find address for Device" + i);
+
+  for (int i = 0; i < devicesFound; i++) {
+    Serial.print("\nDevice " + (String)i + " Address: ");
+    printAddress(devices[i]);
+    Serial.println(printTemperature(devices[i]));
+  }
+
+  for (int i = 0; i < devicesFound; i++)
+    sensors.setResolution(devices[i], TEMPERATURE_PRECISION);
+
+  return;
+}
+
+String printAddress(DeviceAddress deviceAddress) {
+  String out = "";
+  for (uint8_t i = 0; i < 8; i++) {
+    // zero pad the address if necessary
+    if (deviceAddress[i] < 16)
+      Serial.print("0");
+    Serial.print(deviceAddress[i], HEX);
+    out += (String)deviceAddress[i];
+  }
+  return out;
+}
+
+String printTemperature(DeviceAddress deviceAddress) {
+  float tempC = sensors.getTempC(deviceAddress);
+  if (tempC < 10)
+    return "0" + (String)tempC;
+  else
+    return (String)tempC;
+}
