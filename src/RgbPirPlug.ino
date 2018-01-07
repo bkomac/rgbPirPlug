@@ -12,7 +12,7 @@ String sensorData = "";
 int sensorValue;
 
 // CONF
-String ver = "1.0.2";
+String ver = "1.0.3";
 long lastTime = millis();
 
 //DS18B20
@@ -81,6 +81,9 @@ void setup() { //------------------------------------------------
     root["REDPIN"] = REDPIN;
     root["BLUEPIN"] = BLUEPIN;
     root["GREENPIN"] = GREENPIN;
+
+    root["ONE_WIRE_BUS"] = ONE_WIRE_BUS;
+    root["TEMPERATURE_PRECISION"] = TEMPERATURE_PRECISION;
 
     String content;
     root.printTo(content);
@@ -155,6 +158,7 @@ void setup() { //------------------------------------------------
   });
 
   sensors.requestTemperatures();
+  getDeviceAddress();
 
 } //--
 
@@ -168,10 +172,7 @@ void loop() {
 
   sensorValue = analogRead(A0); // read analog input pin 0
 
-  sensors.requestTemperatures();
   temp = sensors.getTempCByIndex(0);
-
-  getDeviceAddress();
 
   yield();
 
