@@ -13,7 +13,7 @@ int sensorValue;
 String ver = "1.0.5";
 long lastTime = millis();
 
-//DS18B20
+// DS18B20
 #define ONE_WIRE_BUS 13
 #define TEMPERATURE_PRECISION 12 // 8 9 10 12
 
@@ -22,14 +22,16 @@ float temp = NULL;
 // PIR
 #define PIRPIN 4
 
-//RGB
+// RGB
 #define REDPIN 16
 #define GREENPIN 12
 #define BLUEPIN 14
 
 int red = 1023;
 int green = 1023;
-int blue = 0;
+int blue = 1023;
+int factor = 1;
+boolean lightUp = false;
 
 #define BUILTINLED 2
 
@@ -63,7 +65,7 @@ void setup() { //------------------------------------------------
   Serial.println(PWMRANGE);
 
   espiot.init(ver);
-  //espiot.enableVccMeasure();
+  // espiot.enableVccMeasure();
   espiot.SENSOR = "PIR,DS18B20";
 
   delay(300);
@@ -132,9 +134,10 @@ void setup() { //------------------------------------------------
 
   espiot.server.on("/rgb", HTTP_OPTIONS, []() {
     espiot.blink();
-    espiot.server.sendHeader("Access-Control-Allow-Methods", "POST,GET,OPTIONS");
+    espiot.server.sendHeader("Access-Control-Allow-Methods",
+                             "POST,GET,OPTIONS");
     espiot.server.sendHeader("Access-Control-Allow-Headers",
-                      "Origin, X-Requested-With, Content-Type, Accept");
+                             "Origin, X-Requested-With, Content-Type, Accept");
     espiot.server.send(200, "text/plain", "");
   });
 
@@ -165,7 +168,7 @@ void setup() { //------------------------------------------------
 // -----------------------------------------------------------------------------
 void loop() {
   yield();
-
+digitalWrite(BUILTINLED, HIGH);
   espiot.loop();
 
   sensorValue = analogRead(A0); // read analog input pin 0
@@ -189,34 +192,28 @@ void loop() {
   if (MODE == "AUTO") {
     if (inputState == HIGH) {
       Serial.println(F("Sensor high ... "));
-      Serial.println("espiot.lightThreshold="+ String(espiot.lightThreshold));
+      // Serial.println("espiot.lightThreshold=" +
+      // String(espiot.lightThreshold));
 
-      if(sensorValue < espiot.lightThreshold){
-          digitalWrite(BUILTINLED, LOW);
-
-          analogWrite(BLUEPIN, blue);
-          analogWrite(GREENPIN, green);
-          analogWrite(REDPIN, red);
-       }
+      if (sensorValue < espiot.lightThreshold) {
+        Serial.println(F("Light on ... "));
+        lightUp = true;
+      }
 
       lastTime = millis();
-      if(!sentMsg){
+      if (!sentMsg) {
         String content;
         root["motion"] = true;
         root.printTo(content);
-        espiot.mqPublishSubTopic(content, "motion");
+        //espiot.mqPublishSubTopic(content, "motion");
         sentMsg = true;
       }
-    } else{
-        root["motion"] = false;
+    } else {
+      root["motion"] = false;
     }
   }
 
   if (millis() > lastTime + espiot.timeOut && inputState != HIGH) {
-    digitalWrite(BUILTINLED, HIGH);
-    analogWrite(BLUEPIN, 1023);
-    analogWrite(GREENPIN, 1023);
-    analogWrite(REDPIN, 1023);
 
     sentMsg = false;
     Serial.println("timeout... " + String(lastTime));
@@ -225,14 +222,68 @@ void loop() {
 
     String content;
     root.printTo(content);
-    espiot.mqPublish(content);
+  //  espiot.mqPublish(content);
 
     lastTime = millis();
+    lightUp = false;
   }
 
   yield();
+  fade();
 
 } //---------------------------------------------------------------
+
+void fade() {
+  if (lightUp)
+    fadeIn();
+  else
+    fadeOut();
+}
+
+void fadeIn() {
+  red = 1023;
+  red = red - factor;
+  if (red < 0)
+    red = 0;
+
+  blue = blue - factor;
+  if (blue < 500)
+    blue = 500;
+
+  green = 1023;
+  green = green - factor;
+  if (green < 0)
+    green = 0;
+
+  digitalWrite(BUILTINLED, HIGH);
+  analogWrite(BLUEPIN, blue);
+  analogWrite(GREENPIN, green);
+  analogWrite(REDPIN, red);
+  delay(20);
+}
+
+void fadeOut() {
+
+  red = 1023;
+  red = red + factor;
+  if (red > 1023)
+    red = 1023;
+
+  blue = blue + factor;
+  if (blue > 1023)
+    blue = 1023;
+
+  green = 1023;
+  green = green + factor;
+  if (green > 1023)
+    green = 1023;
+
+  digitalWrite(BUILTINLED, HIGH);
+  analogWrite(BLUEPIN, blue);
+  analogWrite(GREENPIN, green);
+  analogWrite(REDPIN, red);
+  delay(200);
+}
 
 void getDeviceAddress(void) {
 
